@@ -1,0 +1,7 @@
+.customer-preview{min-height:100dvh;background:#edf1f0}
+.customer-preview-tools{max-width:480px;margin:0 auto;padding:16px;background:#f8faf9;color:#334b46;font-size:13px;overflow-wrap:anywhere}
+.customer-preview-tools strong{font-size:15px}
+.customer-preview-tools p{margin:6px 0 12px;line-height:1.55}
+.customer-preview-tools>div{display:flex;flex-wrap:wrap;gap:8px}
+.customer-preview-tools button{min-height:44px;padding:9px 12px;background:white;border:1px solid #d1ded9;border-radius:9px;color:#176e61;font:inherit}
+@media(min-width:1050px){.customer-preview-tools{position:fixed;top:28px;right:calc(50% + 264px);width:220px;border-radius:14px;padding:20px}.customer-preview-tools>div{display:grid}}

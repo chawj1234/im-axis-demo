@@ -1,0 +1,11 @@
+**/node_modules/
+**/.local-private/
+**/.env*
+!**/.env.team.example
+**/dist/
+**/.next/
+**/.vinext/
+**/.vite*/
+**/*.tsbuildinfo
+**/next-env.d.ts
+.DS_Store

@@ -1,0 +1,12 @@
+/* Home summary and request-local audit disclosure share only their compact shell. */
+.staff-alert-summary{display:flex;align-items:center;flex-wrap:wrap;padding:8px 16px;gap:8px 12px;margin-bottom:18px;border:1px solid #ebd4ad;border-radius:10px;background:#fff8ed;color:#704415;font-size:13px}
+.staff-alert-summary>svg{flex:none}.staff-alert-open{display:flex;align-items:center;justify-content:center;gap:8px;margin-left:auto;min-height:44px;max-width:100%;padding:0 12px;border:1px solid #d8bb91;border-radius:10px;background:#fff;color:inherit;font:inherit;font-weight:700;cursor:pointer;overflow-wrap:anywhere;white-space:normal}
+.staff-alert-open:hover,.staff-alert-list li button:hover{background:#ffecd0}
+.staff-alert-list{margin-left:auto;min-width:0;max-width:100%}.staff-alert-list>summary{min-height:44px;cursor:pointer;display:flex;align-items:center;font-weight:650}.staff-alert-list ul{padding:0;list-style:none}.staff-alert-list li button{display:flex;align-items:center;gap:10px;min-height:44px;border:0;background:transparent;color:inherit;font:inherit;text-align:left;overflow-wrap:anywhere;cursor:pointer}
+.staff-alert-record{margin-top:8px;font-size:12px}.staff-alert-record summary{min-height:44px;cursor:pointer;display:flex;align-items:center}.staff-alert-record p{font-size:12px;line-height:1.7;overflow-wrap:anywhere}.adm-side-panel>.staff-alert-record{padding:0 20px 10px;border-top:1px solid #e6ecea;color:#52676a}
+.staff-alert button:focus-visible,.staff-alert-list summary:focus-visible,.staff-alert-record summary:focus-visible{outline:3px solid #007e78;outline-offset:3px}
+.staff-retry-notice{padding:14px 17px;border:1px solid #b8dcd6;border-radius:12px;background:#eff9f6;color:#225f57;font-size:13px;line-height:1.8;overflow-wrap:anywhere;margin:0 0 20px}
+
+.staff-alert-open>span:first-child{min-width:0;overflow-wrap:anywhere;text-align:left}
+.staff-alert-open>span:nth-child(2){font-size:12px;font-weight:500;flex-shrink:0}
+.staff-alert-open>svg{flex-shrink:0}
