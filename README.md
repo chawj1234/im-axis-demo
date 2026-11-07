@@ -6,7 +6,7 @@
 
 ## 1. 준비
 
-- Node.js 22.13.0 이상과 npm, Python 3, Poppler가 필요합니다.
+- Git, Node.js 22.13.0 이상과 npm, Python 3, Poppler가 필요합니다.
 - 기존 팀 Studio에 접근할 수 있는 API 키를 원준님에게 비공개로 전달받습니다.
 - 인터넷 연결이 필요합니다. 실제 분석은 팀 Studio의 API 사용량에 포함되고 같은 컬렉션에 저장됩니다.
 
@@ -19,7 +19,7 @@ export PATH="$(brew --prefix node@22)/bin:$PATH"
 
 ## 2. 파일 받기와 최초 설정
 
-터미널에서 실행합니다. GitHub의 **Code → Download ZIP**으로 받아 압축을 풀어도 됩니다.
+터미널에서 실행합니다.
 
 ```sh
 git clone https://github.com/chawj1234/im-axis-demo.git
@@ -45,7 +45,7 @@ npm run team:demo
 - 은행원: <http://127.0.0.1:3001/banker?session=team-demo-01>
 - 관리자: <http://127.0.0.1:3001/admin?session=team-demo-01>
 
-같은 접수를 확인할 때는 두 주소의 `session` 값을 같게 둡니다. 이 주소는 실행한 Mac에서만 열립니다. 종료는 터미널에서 **Control+C**입니다. 다음에는 같은 폴더에서 `npm run team:demo`만 실행하면 됩니다.
+같은 접수를 확인할 때는 두 주소의 `session` 값을 같게 둡니다. 이 주소는 실행한 Mac에서만 열립니다. 종료는 터미널에서 **Control+C**입니다. 다음에는 같은 폴더에서 `npm run team:demo`만 실행하면 됩니다. Homebrew의 `node@22`를 사용한다면 새 터미널에서도 위의 `export PATH` 명령을 먼저 실행합니다.
 
 ## 4. 문서 접수와 확인
 
