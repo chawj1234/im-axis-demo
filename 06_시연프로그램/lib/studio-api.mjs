@@ -1,4 +1,5 @@
 import { studioWebRecords } from './studio-web-records.mjs';
+import {minimumReportRequests, validateReportCount} from './studio-report-guard.mjs';
 import { askStudioCoworker } from './studio-coworker.mjs';
 import { mkdir, rm, writeFile, readFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
@@ -12,8 +13,11 @@ const run = promisify(execFile);
 const MAX_BODY = 25 * 1024 * 1024 + 1024 * 1024;
 const agentPattern = /^agt_[A-Za-z0-9_-]+$/;
 const collectionPattern = /^scol_[A-Za-z0-9_-]+$/;
-function dailyReportPrompt(date) {
-    return `등록계약·등급결정결과 컬렉션을 직접 조회해 한국시간 ${date} 저장 기준 일일 금융문서 모니터링 보고서를 작성하십시오. 아래 대괄호 제목을 그대로 사용하십시오. 표 이외에는 일반 텍스트로 작성하십시오.
+export function dailyReportPrompt(date, resultStoreId) {
+    const start = new Date(date + 'T00:00:00+09:00');
+    const end = new Date(start.getTime() + 86400000);
+    const source = resultStoreId ? `요청 대조 결과의 참고 자료 ID는 ${resultStoreId}입니다. 현재 표시명이 등록계약이어도 요청서 결과가 저장된 자료입니다. 표시명으로 자료 역할을 추정하지 말고 이 ID의 request_id가 있는 결과를 조회하십시오. 참고 자료에 없는 이전 동명 컬렉션을 대신 사용하지 마십시오.` : '등록계약·등급결정결과 컬렉션을 직접 조회하십시오.';
+    return `${source} 한국시간 ${date} 저장 기준 일일 금융문서 모니터링 보고서를 작성하십시오. 저장일 필터는 UTC ${start.toISOString()} 이상, ${end.toISOString()} 미만입니다. created_at의 UTC 날짜를 한국 날짜로 오인하지 마십시오. 계약등록 자료의 별도 조회 근거가 없으면 계약 등록 건수는 확인 불가로 표시하고 0으로 추정하지 마십시오. 아래 대괄호 제목을 그대로 사용하십시오. 표 이외에는 일반 텍스트로 작성하십시오.
 [집계 범위] 저장일 기준과 조회 한계를 여기서 한 번만 밝히십시오. 웹 API 접수 여부를 구분할 수 없으면 컬렉션 조회 범위라고 표시하십시오. 저장일을 확인할 수 없으면 신청일로 대체하지 말고 당일 건수는 확인 불가로 표시하십시오. 일부만 조회했다면 확인한 건만 집계하십시오.
 [처리 현황] 요청번호별 당일 최신 확인 결과 한 건을 기준으로 전체·일치·불일치·미평가 건수를 한 번만 표시하십시오. 당일 저장이 확인된 계약 등록 건수를 적고 등급 분포에는 ‘등급 확인 N건 기준’을 붙이십시오.
 [주요 불일치] 여러 요청에서 반복 확인된 항목만 건수와 함께 표시하십시오. 확인된 반복 항목이 없으면 생략하십시오.
@@ -153,10 +157,15 @@ export function studioApi(options = {}) {
                         if (reportRequest) {
                             const date = new Intl.DateTimeFormat('sv-SE', {timeZone: 'Asia/Seoul', dateStyle: 'short'}).format(new Date());
                             try {
+                                const {jobs} = await readState('admin');
+                                const minimum = minimumReportRequests(jobs, date);
                                 const answer = await askStudioCoworker({apiKey: env.UPSTAGE_API_KEY, agentId, timeoutMs: 120000,
-                                    input: dailyReportPrompt(date)});
+                                    input: dailyReportPrompt(date, env.STUDIO_REPORT_RESULT_STORE_ID)});
+                                validateReportCount(answer, minimum);
                                 return send(200, {answer});
                             } catch (error) {
+                                if (error.message === 'studio_report_count_conflict')
+                                    return send(502, {error: '보고서 집계가 확인된 접수 결과와 맞지 않습니다. 관리자 목록과 Studio 결과를 확인해 주세요.'});
                                 if (error.name === 'TimeoutError' || error.name === 'AbortError')
                                     return send(504, {error: '보고서 작성 시간이 초과됐습니다. 다시 시도해 주세요.'});
                                 return send(502, {error: 'Studio에서 보고서를 받지 못했습니다.'});

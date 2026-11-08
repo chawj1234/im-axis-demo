@@ -13,6 +13,7 @@ export function readTeamSettings(env = process.env) {
     STUDIO_PROJECT_ID: /^proj_[\w-]+$/,
     STUDIO_REQUEST_AGENT_ID: /^agt_[\w-]+$/,
     STUDIO_RESULT_COLLECTION_ID: /^scol_[\w-]+$/,
+    STUDIO_REPORT_RESULT_STORE_ID: /^vs_[\w-]+$/,
     STUDIO_REGISTERED_CONTRACT_COLLECTION_ID: /^scol_[\w-]+$/,
   };
   const errors = [];
