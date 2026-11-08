@@ -69,7 +69,7 @@ export function StudioCoworkerPanel({session}: {session: string}) {
       <div className="daily-report-heading">
         <div>
           <h2 id="studio-report-title"><FileText size={18} aria-hidden="true"/>계약·요청 확인 보고서</h2>
-          <p>저장된 계약·요청 필드와 원문 확인이 필요한 사항을 정리합니다.</p>
+          <p>요청 최대 10건의 계약·요청 필드와 원문 확인 필요 사항을 정리합니다.</p>
         </div>
         <button className="daily-report-primary" type="button" disabled={!!busy || !session} aria-busy={busy === 'report'} onClick={() => void ask('report')}>
           {busy === 'report' ? '보고서 작성 중…' : '확인 보고서 작성'}

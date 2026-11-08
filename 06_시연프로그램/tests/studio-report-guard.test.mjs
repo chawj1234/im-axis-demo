@@ -33,6 +33,8 @@ test('review report uses actual contract/request fields and marks missing eviden
   assert.match(prompt, /등급 열·등급별 분류·등급 집계를 만들지/);
   assert.match(prompt, /미확인 값과 조회 실패를 0건·0원으로 쓰거나 추정하지/);
   assert.match(prompt, /요청금액·지급희망일/);
+  assert.match(prompt, /요청을 최대 10건만 선정/);
+  assert.match(prompt, /선정하지 않은 요청의 추가 표나 전체 목록을 만들지/);
   assert.match(prompt, /원문을 직접 확인한 것처럼 쓰지/);
   assert.match(prompt, /오늘 처리 건수나 전체 건수를 추정하지/);
   assert.doesNotMatch(prompt, /저장일 필터|T00:00|한국시간.*저장 기준/);
