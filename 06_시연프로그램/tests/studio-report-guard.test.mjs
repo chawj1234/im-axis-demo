@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {minimumReportRequests, validateReportCount} from '../lib/studio-report-guard.mjs';
-import {dailyReportPrompt} from '../lib/studio-api.mjs';
+import {gradeReportPrompt} from '../lib/studio-api.mjs';
 
 test('confirmed request lower bound uses Korean date boundaries and unique document request IDs', () => {
   const job = {kind: 'request', processing_status: 'completed', collection_status: 'stored', document_request_id: 'A', received_at: '2026-11-07T15:00:00Z'};
@@ -23,10 +23,11 @@ test('zero, missing or undersized model totals cannot hide already confirmed rec
   assert.doesNotThrow(() => validateReportCount('[처리 현황]\n전체 요청 1,003건', 3));
 });
 
-test('report explicitly specifies the actual result resource, UTC interval and unknown registration counts', () => {
-  const prompt = dailyReportPrompt('2026-11-08', 'vs_current');
+test('grade report uses the specified result source without a day filter or invented totals', () => {
+  const prompt = gradeReportPrompt('vs_current');
   assert.match(prompt, /vs_current/);
-  assert.match(prompt, /2026-11-07T15:00:00.000Z/);
-  assert.match(prompt, /2026-11-08T15:00:00.000Z/);
-  assert.match(prompt, /계약 등록 건수는 확인 불가/);
+  assert.match(prompt, /날짜 조건 없이/);
+  assert.match(prompt, /재계산하지/);
+  assert.match(prompt, /오늘 처리 건수나 전체 건수를 추정하지/);
+  assert.doesNotMatch(prompt, /저장일 필터|T00:00|한국시간.*저장 기준/);
 });

@@ -121,3 +121,40 @@ test('malformed request URL is caught as a safe response, not an unhandled middl
   assert.equal(response.statusCode, 400);
   assert.equal(JSON.stringify(response).includes('ERR_INVALID_URL'), false);
 });
+
+test('grade questions and reports query the result collection even with no local receipts', async t => {
+  const prompts = [];
+  const {base} = await fixture(t, {
+    env: {STUDIO_COWORKER_ID: 'cw_team', STUDIO_REPORT_RESULT_STORE_ID: 'vs_current'},
+    askCoworker: async ({input}) => {prompts.push(input); return '확인한 요청 REQ-001: 1등급';},
+  });
+  for (const mode of ['coworker', 'report']) {
+    const response = await fetch(base + '/api/studio/' + mode + '?session=studio-http-test', {
+      method: 'POST', headers: {Origin: base, 'Content-Type': 'application/json'},
+      body: JSON.stringify({question: '등급별로 알려줘'}),
+    });
+    assert.equal(response.status, 200);
+    assert.match((await response.json()).answer, /REQ-001/);
+  }
+  assert.equal(prompts.length, 2);
+  for (const prompt of prompts) {
+    assert.match(prompt, /vs_current/);
+    assert.match(prompt, /날짜 조건 없이/);
+    assert.doesNotMatch(prompt, /컬렉션이나 검색 도구를 사용하지|저장일 필터/);
+  }
+});
+
+test('collection report errors do not become successful empty reports and cross-origin calls are blocked', async t => {
+  let calls = 0;
+  const {base} = await fixture(t, {
+    env: {STUDIO_COWORKER_ID: 'cw_team', STUDIO_REPORT_RESULT_STORE_ID: 'vs_current'},
+    askCoworker: async () => {calls++; throw Error('coworker_turn_failed');},
+  });
+  const path = base + '/api/studio/report?session=studio-http-test';
+  assert.equal((await fetch(path, {method: 'POST', headers: {Origin: 'https://unrelated.test'}})).status, 403);
+  assert.equal(calls, 0);
+  const response = await fetch(path, {method: 'POST', headers: {Origin: base}});
+  assert.equal(response.status, 502);
+  assert.ok((await response.json()).error);
+  assert.equal(calls, 1);
+});
