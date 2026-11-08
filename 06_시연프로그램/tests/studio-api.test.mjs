@@ -125,7 +125,7 @@ test('malformed request URL is caught as a safe response, not an unhandled middl
 test('grade questions and reports query the result collection even with no local receipts', async t => {
   const prompts = [];
   const {base} = await fixture(t, {
-    env: {STUDIO_COWORKER_ID: 'cw_team', STUDIO_REPORT_RESULT_STORE_ID: 'vs_current'},
+    env: {STUDIO_COWORKER_ID: 'cw_team'},
     askCoworker: async ({input}) => {prompts.push(input); return '확인한 요청 REQ-001: 1등급';},
   });
   for (const mode of ['coworker', 'report']) {
@@ -138,7 +138,8 @@ test('grade questions and reports query the result collection even with no local
   }
   assert.equal(prompts.length, 2);
   for (const prompt of prompts) {
-    assert.match(prompt, /vs_current/);
+    assert.match(prompt, /현재 이 동료에 연결된 등급결정결과/);
+    assert.doesNotMatch(prompt, /vs_|scol_/);
     assert.match(prompt, /날짜 조건 없이/);
     assert.doesNotMatch(prompt, /컬렉션이나 검색 도구를 사용하지|저장일 필터/);
   }
@@ -147,7 +148,7 @@ test('grade questions and reports query the result collection even with no local
 test('collection report errors do not become successful empty reports and cross-origin calls are blocked', async t => {
   let calls = 0;
   const {base} = await fixture(t, {
-    env: {STUDIO_COWORKER_ID: 'cw_team', STUDIO_REPORT_RESULT_STORE_ID: 'vs_current'},
+    env: {STUDIO_COWORKER_ID: 'cw_team'},
     askCoworker: async () => {calls++; throw Error('coworker_turn_failed');},
   });
   const path = base + '/api/studio/report?session=studio-http-test';

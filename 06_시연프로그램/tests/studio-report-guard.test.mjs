@@ -23,9 +23,10 @@ test('zero, missing or undersized model totals cannot hide already confirmed rec
   assert.doesNotThrow(() => validateReportCount('[처리 현황]\n전체 요청 1,003건', 3));
 });
 
-test('grade report uses the specified result source without a day filter or invented totals', () => {
-  const prompt = gradeReportPrompt('vs_current');
-  assert.match(prompt, /vs_current/);
+test('grade report follows current coworker references without pinned collection IDs or day filters', () => {
+  const prompt = gradeReportPrompt();
+  assert.match(prompt, /현재 이 동료에 연결된 등급결정결과/);
+  assert.doesNotMatch(prompt, /vs_|scol_/);
   assert.match(prompt, /날짜 조건 없이/);
   assert.match(prompt, /재계산하지/);
   assert.match(prompt, /오늘 처리 건수나 전체 건수를 추정하지/);
