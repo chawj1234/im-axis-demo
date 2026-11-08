@@ -7,8 +7,8 @@ import './daily-report-panel.css';
 import './studio-coworker-panel.css';
 
 const suggestions = [
-  {label: '등급별 결과 보기', question: '저장된 요청서 대조 결과를 등급별로 알려 주세요.'},
-  {label: '확인 필요 요청 보기', question: '확인 필요한 등급의 요청과 그 근거를 알려 주세요.'},
+  {label: '계약·요청 내용 보기', question: '저장된 계약과 요청의 주요 필드를 확인해 주세요.'},
+  {label: '원문 확인 필요 보기', question: '원문 확인이 필요한 요청과 필드, 그 사유를 알려 주세요.'},
 ];
 
 type Reply = {answer: string; error?: never} | {error: string; answer?: never};
@@ -68,11 +68,11 @@ export function StudioCoworkerPanel({session}: {session: string}) {
     <section className="daily-report" aria-labelledby="studio-report-title">
       <div className="daily-report-heading">
         <div>
-          <h2 id="studio-report-title"><FileText size={18} aria-hidden="true"/>등급별 요약 보고서</h2>
-          <p>Studio 요청서 결과를 등급별로 정리합니다. 예약 보고서는 Studio에서 확인하세요.</p>
+          <h2 id="studio-report-title"><FileText size={18} aria-hidden="true"/>계약·요청 확인 보고서</h2>
+          <p>저장된 계약·요청 필드와 원문 확인이 필요한 사항을 정리합니다.</p>
         </div>
         <button className="daily-report-primary" type="button" disabled={!!busy || !session} aria-busy={busy === 'report'} onClick={() => void ask('report')}>
-          {busy === 'report' ? '보고서 작성 중…' : '등급별 보고서 작성'}
+          {busy === 'report' ? '보고서 작성 중…' : '확인 보고서 작성'}
         </button>
       </div>
       {busy === 'report' && <p className="studio-report-output" role="status">저장된 대조 결과를 조회하고 있습니다.</p>}
