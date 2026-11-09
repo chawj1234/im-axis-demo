@@ -32,6 +32,15 @@ export function readStudioContractValidation(response) {
   return readValidationStage(studioOutputStages({...response, output}), '계약-필수값검증', {optional: true});
 }
 
+/** Input validation is independent evidence when the explanatory body is unreadable. */
+export function readStudioRejectedInput(stages) {
+  if (stages.some(stage => stage.status === 'completed'
+    && stage.name === 'Validate - 요청-기본대조')) throw Error('studio_validation_stage_invalid');
+  const input = readValidationStage(stages, '요청-입력검증');
+  if (input.verdict !== 'red') throw Error('studio_validation_evidence_invalid');
+  return input;
+}
+
 // Request FLOW #5 omits purpose_review and only emits reason for incomplete results.
 const requestV5Keys = ['request_id', 'contract_id', 'evaluation_status', 'checks', 'grade_basis'];
 function hasRequestV5Body(body) {

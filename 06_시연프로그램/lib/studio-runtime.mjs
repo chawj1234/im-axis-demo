@@ -1,6 +1,6 @@
 import {createHash, randomUUID} from 'node:crypto';
 import {RecordStore, validSession} from './record-store.mjs';
-import {acceptStudioDecision, readStudioDecision, readStudioContractValidation, studioOutputStages} from './studio-decision.mjs';
+import {acceptStudioDecision, readStudioDecision, readStudioContractValidation, readStudioRejectedInput, studioOutputStages} from './studio-decision.mjs';
 import {projectStudioDecision} from './studio-view.mjs';
 import {summarizeStudioReport} from './studio-report-summary.mjs';
 
@@ -163,7 +163,18 @@ export class StudioRuntime {
       .flatMap(stage => stage.contents.map(content => ({stage, content})));
     const candidate = malformedDecision.length === 1 ? malformedDecision[0] : null;
     let accepted;
-    if (candidate?.content.malformed && !routing && matches.length === 1 && typeof expectedRequestId === 'string') {
+    if (candidate?.content.malformed && !routing && candidate.stage.name === 'Instruct - 입력부족-안내'
+      && candidate.content.additional_values?.enum === '미평가') {
+      const input = readStudioRejectedInput(stages);
+      accepted = acceptStudioDecision({decision: '미평가', expectedRequestId, expectedContractId, body: {
+        request_id: expectedRequestId, contract_id: expectedContractId, evaluation_status: 'incomplete',
+        checks: null, grade_basis: null, purpose_review: null,
+        validation: {input, basic: null},
+        reason: '필수정보 검증을 통과하지 못해 평가하지 않았습니다.',
+      }});
+      // Preserve that this reason is a web summary, not repaired Instruct prose.
+      job.input_evidence_recovered = true;
+    } else if (candidate?.content.malformed && !routing && matches.length === 1 && typeof expectedRequestId === 'string') {
       const basic = stages.filter(stage => stage.name === 'Validate - 요청-기본대조' && stage.status === 'completed')
         .flatMap(stage => stage.contents.map(content => content.value));
       const branch = basic.length === 1 && basic[0] === 'green' ? 'match'
@@ -202,6 +213,7 @@ export class StudioRuntime {
       checks: view?.additionalChecks ?? [], basic_comparison: view?.basicComparison ?? 'unknown',
       studio_url: id('agt_', job.agent_id) ? 'https://studio.upstage.ai/agents/' + job.agent_id : null});
     dto.contract_validation = job.kind === 'contract' && ['green', 'red'].includes(job.contract_validation) ? job.contract_validation : null;
+    dto.input_evidence_recovered = role === 'admin' && job.input_evidence_recovered === true;
     dto.validation = role === 'admin' ? job.result?.body.validation ?? null : null;
     dto.purpose_review = role === 'admin' ? job.result?.body.purpose_review ?? null : null;
     dto.partial_evidence = role === 'admin' && job.result?.partial_evidence === true;

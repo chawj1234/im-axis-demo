@@ -120,3 +120,32 @@ test('the new request shape reaches the dashboard with no artificial purpose che
  assert.equal(request.purposeReview,undefined);
  assert.equal(request.checks.find(c=>c.key==='payout_account').status,'match');
 });
+
+test('malformed incomplete prose uses only the separate enum and verified rejected input',async t=>{
+ const root=await mkdtemp(join(tmpdir(),'axis-rejected-input-'));t.after(()=>rm(root,{recursive:true,force:true}));
+ const runtime=new StudioRuntime({root,client:{upload(){},create(){},retrieve(){}},workflows:{request:{agentId:'agt_v40',configMode:'latest',collectionId:'scol_v40'}}});
+ const result=completed(true);
+ const check=result.output[1].content[0];
+ check.additional_values=JSON.stringify({verdict:'red',checks:[{name:'예상 잔액 비음수·범위',passed:false,reason:'expected_outstanding_after_krw=-1 → fail'}]});
+ result.output.at(-1).content[0].text=JSON.stringify('{"reason":"unfinished');
+ const now=new Date().toISOString();
+ const job={id:'REQ-input',receipt_id:'REQ-input',session_id:session,kind:'request',filename:'request.pdf',document_id:'document-input',studio_job_id:'job_v40',agent_id:'agt_v40',collection_id:'scol_v40',received_at:now,updated_at:now,configuration_mode:'latest'};
+ runtime.applyResponse(session,job,result);
+ assert.equal(job.processing_status,'completed');assert.equal(job.evaluation_status,'incomplete');
+ assert.equal(job.result.final_grade,null);assert.equal(job.input_evidence_recovered,true);
+ const state=runtime.projectState(session,'admin',[job]);
+ assert.equal(state.summary_error,undefined);
+ const request=normalizeStudioOperationsState(readStudioSnapshot(state,session,'admin'),session).requests[0];
+ assert.equal(request.studio.decision,'미평가');
+ assert.equal(request.validationFailures[0].name,'실행 후 예상 잔액');
+ assert.doesNotMatch(request.validationFailures[0].reason,/expected_outstanding/);
+ assert.equal(runtime.dto(job,'banker').input_evidence_recovered,false);
+ const wrongEnum=structuredClone(result);wrongEnum.output.at(-1).content[0].additional_values=JSON.stringify({enum:'1등급'});
+ assert.throws(()=>runtime.applyResponse(session,{...job},wrongEnum));
+ const wrongVerdict=structuredClone(result);wrongVerdict.output[1]=validate('요청-입력검증',true);
+ assert.throws(()=>runtime.applyResponse(session,{...job},wrongVerdict),/validation_evidence/);
+ const duplicate=structuredClone(result);duplicate.output.push(result.output.at(-1));
+ assert.throws(()=>runtime.applyResponse(session,{...job},duplicate));
+ const laterStage=structuredClone(result);laterStage.output.push(validate('요청-기본대조',false));
+ assert.throws(()=>runtime.applyResponse(session,{...job},laterStage),/validation_stage/);
+});

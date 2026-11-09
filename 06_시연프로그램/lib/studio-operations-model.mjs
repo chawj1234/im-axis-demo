@@ -91,7 +91,10 @@ export function normalizeStudioOperationsState(input, session) {
       }
     }
     const validationFailures = completed && inputValidation.verdict === 'red' && Array.isArray(inputValidation.checks)
-      ? inputValidation.checks.filter(check => record(check).passed === false && text(check.name)).map(check => ({name:text(check.name),fields:[],reason:text(check.reason) || 'Studio 검증 결과를 확인해 주세요.'})) : [];
+      ? inputValidation.checks.filter(check => record(check).passed === false && text(check.name)).map(check => ({
+        name: job.input_evidence_recovered && check.name === '예상 잔액 비음수·범위' ? '실행 후 예상 잔액' : text(check.name),
+        fields:[],reason:job.input_evidence_recovered ? '문서의 해당 항목과 입력 검증 결과를 확인해 주세요.' : text(check.reason) || 'Studio 검증 결과를 확인해 주세요.',
+      })) : [];
     const purpose = state.role === 'banker' ? '' : text(job.purpose_review);
     requests.push({id:job.id,receiptId:stored ? text(job.document_request_id) || job.id : job.id,...(text(job.document_contract_id) ? {contractId:text(job.document_contract_id)} : {}),receivedAt,companyName:text(fields.requester_name) || job.filename,
       contractReference:text(job.document_contract_id) || text(fields.contract_id) || '미확인',contractAmount:won(contract.credit_limit_krw),requestedAmount:won(fields.requested_amount_krw),
