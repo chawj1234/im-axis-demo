@@ -1,7 +1,7 @@
 'use client';
 
 import {useEffect, useMemo, useRef, useState, type ReactNode} from 'react';
-import {AlertCircle, ArrowLeft, ArrowRight, Bell, Check, CheckCheck, ChevronDown, ChevronRight, CircleHelp, ClipboardList, Clock3, FileCheck2, FileText, Info, Search, ShieldAlert, X} from 'lucide-react';
+import {AlertCircle, ArrowLeft, ArrowRight, Check, CheckCheck, ChevronDown, ChevronRight, CircleHelp, ClipboardList, Clock3, FileCheck2, FileText, Info, Search, ShieldAlert, X} from 'lucide-react';
 import type {OperationsCheck, OperationsContract, OperationsMetrics, OperationsRequest, OperationsSource, ReviewGrade} from '../lib/operations-types';
 import {formatReceiptId, formatDateTime, formatRatio, formatWon, operationsRequestStatus as requestState, operationsStatusLabels as stateLabels, prioritizeOperationsChecks, operationsRequestScope, operationsStatusCounts, operationsProcessingCounts, operationsCheckStatusLabel} from '../lib/operations-format';
 import {operationsFieldMismatch, operationsMetrics} from '../lib/operations-model';
@@ -93,7 +93,6 @@ function RequestDetail({request, onBack, reviewAlert, retryContent}: {request: O
   const attentionChecks = prioritizeOperationsChecks(allChecks).filter(check => check.status === 'mismatch');
   const reviewChecks = allChecks.filter(check => check.status === 'unknown');
   const matchedChecks = allChecks.filter(check => check.status === 'match');
-  const notification = request.customerNotification;
   const barWidth = request.ratio !== null && Number.isFinite(request.ratio) ? Math.max(0, Math.min(100, request.ratio)) : 0;
   useEffect(() => {heading.current?.focus();}, [request.id]);
   return <section className="adm-dashboard adm-detail" aria-labelledby="adm-detail-title">
@@ -134,9 +133,8 @@ function RequestDetail({request, onBack, reviewAlert, retryContent}: {request: O
         </section>
       </div>
 
-      <aside className="adm-detail-side" aria-label="접수 문서와 알림 기록">
+      <aside className="adm-detail-side" aria-label="접수 문서와 등급 기준">
         <section className="adm-panel adm-side-panel"><div className="adm-panel-header"><h2><FileText size={18} aria-hidden="true" />접수 문서</h2><span className="adm-count-pill">{request.files.length}</span></div><div className="adm-document-list">{request.files.length ? request.files.map((file, index) => <SourceLink key={`${file.name}-${index}`} source={file} onOpen={setDocument} />) : <p className="adm-side-empty">연결된 문서가 없습니다.</p>}</div><div className="adm-side-foot"><span>계약번호</span><strong>{request.contractReference || (validationFailed ? '대조 전' : '미확인')}</strong></div></section>
-        <details className="adm-panel adm-side-panel adm-fold"><summary><Bell size={18} aria-hidden="true" /><span>고객 앱 알림 기록</span><ChevronDown className="adm-fold-toggle" size={18} aria-hidden="true" /></summary><dl className="adm-notification-log"><div><dt>접수 알림 생성</dt><dd>{notification?.receiptAt ? formatDateTime(notification.receiptAt) : '기록 없음'}</dd></div><div><dt>불일치 알림 생성</dt><dd>{notification?.mismatchAt ? formatDateTime(notification.mismatchAt) : status === 'match' ? '해당 없음' : '기록 없음'}</dd></div><div><dt>고객 앱 노출 기록</dt><dd>{notification?.displayedAt ? formatDateTime(notification.displayedAt) : '표시 기록 없음'}</dd></div></dl><p className="adm-side-caption">{studio ? "이 Studio 연결 모드의 고객 알림은 아직 연결하지 않았습니다." : "접수 사실을 알리고, 불일치가 확인된 경우에만 추가 안내합니다."}</p></details>
         <details className="adm-panel adm-side-panel adm-policy adm-fold"><summary><Info size={18} aria-hidden="true" /><span>문서 대조 등급 기준 보기</span><ChevronDown className="adm-fold-toggle" size={18} aria-hidden="true" /></summary><div><p>검증 항목에 불일치가 없으면 금액 비율과 관계없이 6등급입니다.</p><p>하나라도 불일치하면, 이번 요청금액이 총 계약금액에서 차지하는 비율로 5~1등급을 정합니다. 이 비율이 클수록 1등급에 가까워집니다.</p><p><strong>금액 비율 = 이번 요청금액 ÷ 총 계약금액 × 100</strong></p><p>요청 금액이 총 계약금액 이내인지 확인하며, 두 금액이 같아야 하는 것은 아닙니다.</p><p>필수값이 누락되거나 확인되지 않으면 등급을 매기지 않습니다.</p><div className="adm-policy-grades" aria-label="불일치 요청의 금액 비율별 등급">{([5, 4, 3, 2, 1] as ReviewGrade[]).map(grade => <span key={grade}><b>{grade}등급</b>{gradeRanges[grade]}</span>)}</div></div></details>
       </aside>
     </div>
