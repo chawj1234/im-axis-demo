@@ -116,8 +116,17 @@ export function studioOutputStages(response, {allowMalformedInstruct = false} = 
     contents: (stage.content || []).filter(content => content.type === 'output_text').map(content => {
       const decode = (value, allowCitations = false) => {
         let current = value;
-        for (let i = 0; i < 2 && typeof current === 'string'; i++) {
-          const text = current.trim().replace(/^```(?:json)?\s*\n([\s\S]*?)\n```$/, '$1');
+        for (let i = 0; i < 4 && typeof current === 'string'; i++) {
+          let text = current.trim();
+          const fenced = /^```(?:json)?[ \t]*\r?\n([\s\S]*?)\r?\n```([\s\S]*)$/.exec(text);
+          if (fenced) {
+            const trailing = fenced[2].trim();
+            // Only a single leading JSON block is authoritative; never pick among payloads.
+            if (trailing && (!allowCitations || /```|(?:^|\n)[ \t]*[\[{"]/.test(trailing))) {
+              throw Error('studio_output_json_ambiguous');
+            }
+            text = fenced[1].trim();
+          }
           if (i > 0 && !/^[\[{\"]/.test(text)) break;
           try {
             current = JSON.parse(text);
@@ -132,7 +141,8 @@ export function studioOutputStages(response, {allowMalformedInstruct = false} = 
         return current;
       };
       let value, malformed = false;
-      try { value = decode(content.text, /instruct/i.test(stage.model || '')); } catch {
+      try { value = decode(content.text, /instruct/i.test(stage.model || '')); } catch (failure) {
+        if (failure?.message === 'studio_output_json_ambiguous') throw failure;
         if (/classify/i.test(stage.model || '')) value = content.text;
         else if (allowMalformedInstruct && /instruct/i.test(stage.model || '')) malformed = true;
         else throw Error('studio_output_json_invalid');

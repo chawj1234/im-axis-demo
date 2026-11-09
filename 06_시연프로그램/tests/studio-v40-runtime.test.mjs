@@ -57,3 +57,24 @@ test('legacy Instruct plus actual Validate metadata reaches all 12 chart criteri
  assert.ok(metrics.mismatchFields.every(field=>field.unavailableCount===0));
  assert.deepEqual(metrics.mismatchFields.filter(field=>field.count).map(field=>field.key),['payout_account']);
 });
+
+
+test('fenced, double-encoded result plus citations survives the full live result pipeline',async t=>{
+ const root=await mkdtemp(join(tmpdir(),'axis-cited-output-'));t.after(()=>rm(root,{recursive:true,force:true}));
+ const runtime=new StudioRuntime({root,client:{upload(){},create(){},retrieve(){}},workflows:{request:{agentId:'agt_v40',configMode:'latest',collectionId:'scol_v40'}}});
+ const result=completed();
+ const output=result.output.at(-1).content[0];
+ const fenced='```json\n'+output.text+'\n```\n\n- 문서에서 확인한 결과입니다.【†1】';
+ output.text=JSON.stringify(JSON.stringify(fenced));
+ const now=new Date().toISOString();
+ const job={id:'REQ-cited',receipt_id:'REQ-cited',session_id:session,kind:'request',filename:'request.pdf',document_id:'document-v40',studio_job_id:'job_v40',agent_id:'agt_v40',collection_id:'scol_v40',received_at:now,updated_at:now,configuration_mode:'latest'};
+ runtime.applyResponse(session,job,result);
+ assert.equal(job.processing_status,'completed');
+ const normalized=normalizeStudioOperationsState(readStudioSnapshot(runtime.projectState(session,'admin',[job]),session,'admin'),session);
+ assert.equal(normalized.requests[0].grade,6);
+ assert.equal(normalized.requests[0].checks.find(c=>c.key==='payout_account').status,'match');
+ // Ambiguous fenced results must bypass the existing partial-evidence fallback.
+ result.output.splice(1,0,stage('Match - 매칭-1',{등록계약:[{contract_id:'C40',credit_limit_krw:100}]}));
+ output.text=fenced+'\n```json\n{}\n```';
+ assert.throws(()=>runtime.applyResponse(session,structuredClone(job),result),/json_ambiguous/);
+});

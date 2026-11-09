@@ -88,3 +88,28 @@ test('legacy Validate conflicts and duplicate metadata fail without fabricating 
  const absent=legacyResponse();absent.output=absent.output.filter(s=>s.model.startsWith('Instruct'));
  assert.equal(readStudioDecision(absent,ids).body.validation,undefined);
 });
+
+
+test('cited prose after a single JSON fence and nested string encoding preserve the validated decision',()=>{
+ const fenced='```json\n'+JSON.stringify(body())+'\n```\n\n- 문서 대조 근거입니다.【†1】';
+ for(const text of [fenced,JSON.stringify(fenced),JSON.stringify(JSON.stringify(fenced))]) {
+  const value=response();value.output.at(-1).content[0].text=text;
+  const accepted=readStudioDecision(value,ids);
+  assert.equal(accepted.final_grade,6);assert.equal(accepted.body.date_check.status,'match');
+  assert.equal(accepted.body.validation.basic.checks.length,1);
+ }
+});
+
+test('multiple JSON blocks and conflicting decoded evidence never acquire a confirmed result',()=>{
+ const fenced='```json\n'+JSON.stringify(body())+'\n```';
+ for(const trailing of ['\n```json\n'+JSON.stringify(body())+'\n```','\n'+JSON.stringify(body())]) {
+  const value=response();value.output.at(-1).content[0].text=fenced+trailing;
+  assert.throws(()=>readStudioDecision(value,ids),/json_ambiguous/);
+ }
+ const conflict=body();conflict.checks.date.status='mismatch';
+ const value=response();value.output.at(-1).content[0].text='```json\n'+JSON.stringify(conflict)+'\n```\n- 설명입니다.';
+ assert.throws(()=>readStudioDecision(value,ids),/evidence_inconsistent/);
+ const wrongId=body();wrongId.contract_id='another-contract';
+ value.output.at(-1).content[0].text='```json\n'+JSON.stringify(wrongId)+'\n```\n- 설명입니다.';
+ assert.throws(()=>readStudioDecision(value,ids),/identity_mismatch/);
+});
