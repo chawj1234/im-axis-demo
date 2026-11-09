@@ -31,7 +31,7 @@ test('dashboard keeps chart visible with remaining criteria collapsed',async()=>
  assert.match(html,/<section class="adm-panel adm-field-panel" aria-labelledby="adm-field-chart-title">/);
  assert.match(html,/<details class="adm-field-more">/);
  assert.match(html,/나머지 12개 항목 펼치기/);
- assert.match(html,/기본 대조 9개 · 추가 검사 3개/);
+ assert.doesNotMatch(html,/기본 대조 9개 · 추가 검사 3개|adm-field-track|adm-field-intro|전체 요청 기준|adm-metrics-scope|adm-charts-scope/);
  assert.equal((html.match(/class="adm-field-row"/g)||[]).length,12);
  assert.doesNotMatch(html,/<details class="adm-analytics"/);
 });
@@ -62,10 +62,10 @@ test('linked chart grade and field selections share evidence, counts and list me
  const previous=globalThis.requestAnimationFrame;globalThis.requestAnimationFrame=()=>0;t.after(()=>{if(previous)globalThis.requestAnimationFrame=previous;else delete globalThis.requestAnimationFrame;});
  const requests=[chartRequest('account',1,['payout_account']),chartRequest('holder',1,['payout_holder']),chartRequest('lower',5,['payout_account']),chartRequest('match',6)];
  const ui=dashboardHarness(requests);let tree=ui.render();
- assert.equal(fieldButton(tree,'수취계좌').props.children[2].props.children,'2');
+ assert.equal(fieldButton(tree,'수취계좌').props.children[1].props.children,'2건');
  gradeButton(tree,1).props.onClick();tree=ui.render();
  assert.equal(gradeButton(tree,1).props['aria-pressed'],true);
- assert.equal(fieldButton(tree,'수취계좌').props.children[2].props.children,'1');
+ assert.equal(fieldButton(tree,'수취계좌').props.children[1].props.children,'1건');
  assert.deepEqual(requestRows(tree),['account','holder']);
  fieldButton(tree,'수취계좌').props.onClick();tree=ui.render();
  assert.deepEqual(requestRows(tree),['account']);
@@ -84,7 +84,7 @@ test('search and contract scope apply consistently to chart counts and matching 
  nodes(tree,n=>n.type==='input'&&n.props.type==='search')[0].props.onChange({target:{value:'beta'}});tree=ui.render();
  assert.equal(gradeButton(tree,1).props.children[0].props.children,'0');
  assert.equal(fieldButton(tree,'수취계좌').props.disabled,true);
- assert.equal(fieldButton(tree,'수취계좌 예금주').props.children[2].props.children,'1');
+ assert.equal(fieldButton(tree,'수취계좌 예금주').props.children[1].props.children,'1건');
  assert.deepEqual(requestRows(tree),['beta']);
  nodes(tree,n=>n.type==='select')[0].props.onChange({target:{value:'contract-a'}});tree=ui.render();
  assert.equal(requestRows(tree).length,0);
@@ -95,7 +95,7 @@ test('incomplete, failed and unresolved results cannot appear in field drill-dow
  const previous=globalThis.requestAnimationFrame;globalThis.requestAnimationFrame=()=>0;t.after(()=>{if(previous)globalThis.requestAnimationFrame=previous;else delete globalThis.requestAnimationFrame;});
  const requests=[chartRequest('known',1,['payout_account']),chartRequest('incomplete',null,['payout_account']),chartRequest('failed',null,['payout_account'],{processing:'failed'}),chartRequest('pending',null,['payout_account'],{processing:'processing'})];
  const ui=dashboardHarness(requests);let tree=ui.render();
- assert.equal(fieldButton(tree,'수취계좌').props.children[2].props.children,'1');
+ assert.equal(fieldButton(tree,'수취계좌').props.children[1].props.children,'1건');
  fieldButton(tree,'수취계좌').props.onClick();tree=ui.render();assert.deepEqual(requestRows(tree),['known']);
  const status=nodes(tree,n=>n.type==='button'&&n.props.children?.[0]==='전체')[0];status.props.onClick();tree=ui.render();
  assert.equal(requestRows(tree).length,4);assert.equal(fieldButton(tree,'수취계좌').props['aria-pressed'],false);
@@ -109,7 +109,7 @@ test('only fields with confirmed mismatches appear outside the collapsed remaind
  const visible=lists.find(n=>n.props['aria-label']==='불일치가 발생한 대조 항목');
  const other=lists.find(n=>n.props['aria-label']==='불일치가 확인되지 않은 나머지 대조 항목');
  assert.equal(nodes(visible,n=>n.props.className==='adm-field-row').length,1);
- assert.equal(fieldButton(visible,'수취계좌').props.children[2].props.children,'1');
+ assert.equal(fieldButton(visible,'수취계좌').props.children[1].props.children,'1건');
  assert.equal(nodes(other,n=>n.props.className==='adm-field-row').length,11);
  const details=nodes(tree,n=>n.type==='details'&&n.props.className==='adm-field-more')[0];
  assert.equal(details.props.open,undefined);

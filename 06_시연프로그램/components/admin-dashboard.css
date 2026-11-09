@@ -114,3 +114,10 @@
 .adm-field-row[aria-pressed="true"] .adm-field-label,.adm-field-row[aria-pressed="true"]>strong{color:var(--adm-teal);font-weight:650}
 .adm-request-heading h2{scroll-margin-top:24px}
 .adm-request-heading h2:focus-visible{outline:2px solid var(--adm-teal);outline-offset:4px}
+
+/* Compact field counts share the common chart scope above both panels. */
+.adm-dashboard .adm-field-row{grid-template-columns:minmax(0,1fr) max-content 16px;gap:10px}
+.adm-dashboard .adm-field-chart{padding-top:12px;padding-bottom:16px}
+.adm-field-row>svg{color:var(--adm-teal)}
+.adm-field-row:disabled>strong{grid-column:2}
+.adm-field-more:last-child{padding-bottom:4px}

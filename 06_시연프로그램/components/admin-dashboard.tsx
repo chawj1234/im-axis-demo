@@ -165,13 +165,11 @@ export default function AdminDashboard({requests, metrics, contracts = [], selec
   const gradeScope = useMemo(() => scoped.filter(request => gradeFilter === undefined || (requestState(request) === 'match' || requestState(request) === 'mismatch' ? request.grade : null) === gradeFilter), [scoped, gradeFilter]);
   const fieldMetrics = useMemo(() => operationsMetrics(gradeScope), [gradeScope]);
   const fieldLabel = fieldMetrics.mismatchFields.find(field => field.key === fieldFilter)?.label;
-  const chartScopeLabel = `${contractId ? '선택한 계약' : '전체 계약'}${search.trim() ? ' · 검색 결과' : ''} · 요청 ${numberLabel(scoped.length)}건`;
-  const fieldScopeLabel = `${gradeFilter === undefined ? '전체 등급' : gradeFilter === null ? '등급 미산정' : `${gradeFilter}등급`} · 평가 완료 ${numberLabel(fieldMetrics.comparedRequests)}건`;
+  const chartScopeLabel = [contractId ? '선택한 계약' : '', search.trim() ? '검색 결과' : '', gradeFilter === undefined ? '' : gradeFilter === null ? '항목별 통계: 등급 미산정' : `항목별 통계: ${gradeFilter}등급`].filter(Boolean).join(' · ');
   const filtered = useMemo(() => {
     const priority = {mismatch: 0, failed: 1, review: 2, processing: 3, match: 4};
     return gradeScope.filter(request => (filter === 'all' || (filter === 'extraction' ? request.processing === 'failed' && request.gradeReason === '추출값 확인 필요' : filter === 'failed' ? request.processing === 'failed' && request.gradeReason !== '추출값 확인 필요' : requestState(request) === filter)) && (!fieldFilter || operationsFieldMismatch(request, fieldFilter))).sort((a, b) => priority[requestState(a)] - priority[requestState(b)] || (a.grade ?? 7) - (b.grade ?? 7) || (Date.parse(b.receivedAt) || 0) - (Date.parse(a.receivedAt) || 0));
   }, [gradeScope, filter, fieldFilter]);
-  const maxFieldCount = Math.max(...fieldMetrics.mismatchFields.map(field => field.count), 1);
   const mismatchFields = fieldMetrics.mismatchFields.filter(field => field.count > 0);
   const otherFields = fieldMetrics.mismatchFields.filter(field => field.count === 0);
   const grades: (ReviewGrade | null)[] = [1, 2, 3, 4, 5, 6, null];
@@ -184,7 +182,7 @@ export default function AdminDashboard({requests, metrics, contracts = [], selec
   const renderFieldRow = (field: OperationsMetrics['mismatchFields'][number]) => {
     const confirmed = fieldMetrics.comparedRequests - field.unavailableCount;
     const value = field.unavailableCount > 0 && confirmed === 0 ? '—' : numberLabel(field.count);
-    return <div key={field.key} role="listitem"><button type="button" className="adm-field-row" disabled={field.count === 0} aria-pressed={fieldFilter === field.key} onClick={() => selectField(field.key)} aria-label={`${field.label}: ${value === '—' ? '개별 결과 미확인' : `${field.count}건`}${field.unavailableCount > 0 ? `, ${field.unavailableCount}건 집계 제외` : ''}${field.count > 0 ? ', 요청 목록 필터' : ''}`}><span className="adm-field-label">{field.label}{field.unavailableCount > 0 && confirmed > 0 && <small>{numberLabel(confirmed)}건의 결과 확인</small>}</span><span className="adm-field-track" aria-hidden="true"><span style={{width: `${field.count / maxFieldCount * 100}%`}} /></span><strong>{value}</strong></button></div>;
+    return <div key={field.key} role="listitem"><button type="button" className="adm-field-row" disabled={field.count === 0} aria-pressed={fieldFilter === field.key} onClick={() => selectField(field.key)} aria-label={`${field.label}: ${value === '—' ? '개별 결과 미확인' : `${field.count}건`}${field.unavailableCount > 0 ? `, ${field.unavailableCount}건 집계 제외` : ''}${field.count > 0 ? ', 요청 목록 필터' : ''}`}><span className="adm-field-label">{field.label}{field.unavailableCount > 0 && confirmed > 0 && <small>{numberLabel(confirmed)}건의 결과 확인</small>}</span><strong>{value === '—' ? value : `${value}건`}</strong>{field.count > 0 && <ChevronRight size={16} aria-hidden="true" />}</button></div>;
   };
 
   if (selected) return <RequestDetail key={selected.id} request={selected} onBack={back} retryContent={retryContent} reviewAlert={reviewAlerts.find(alert => alert.job_id === selected.id)} />;
@@ -193,12 +191,11 @@ export default function AdminDashboard({requests, metrics, contracts = [], selec
 
   return <section className="adm-dashboard" aria-label="문서 자동 대조 관리 현황">
     <div className="adm-metrics" aria-label="전체 요청과 처리 결과">
-      {[['전체 요청', metrics.totalRequests],['평가 완료',processingCounts.evaluated],['미평가',processingCounts.incomplete],['처리 실패',processingCounts.failed]].map(([label,count])=><article className="adm-metric" key={label}><div className="adm-metric-top"><span>{label}</span></div><strong>{numberLabel(Number(count))}<small>건</small></strong></article>)}
+      {[['전체 요청', metrics.totalRequests],['평가 완료',processingCounts.evaluated],['미평가',processingCounts.incomplete],['처리 실패',processingCounts.failed],...(processingCounts.processing ? [['처리 중',processingCounts.processing]] : []),...(processingCounts.review ? [['결과 확인 필요',processingCounts.review]] : [])].map(([label,count])=><article className="adm-metric" key={label}><div className="adm-metric-top"><span>{label}</span></div><strong>{numberLabel(Number(count))}<small>건</small></strong></article>)}
     </div>
-    <p className="adm-metrics-scope">전체 요청 기준 · 처리 중 {processingCounts.processing}건 · 결과 확인 필요 {processingCounts.review}건</p>
 
     <div className="adm-analytics">
-      <p className="adm-charts-scope">{chartScopeLabel}</p>
+      {chartScopeLabel && <p className="adm-charts-scope">{chartScopeLabel}</p>}
       <div className="adm-charts">
       <section className="adm-panel adm-grade-panel" aria-labelledby="adm-grade-chart-title"><div className="adm-panel-header"><div><h2 id="adm-grade-chart-title">문서 대조 등급별 요청 분포</h2><p>6등급은 검증 항목에 불일치가 없는 경우입니다. 불일치가 있으면 요청금액 비율이 클수록 1등급에 가까워집니다.</p></div><span className="adm-chart-unit">단위: 건</span></div><div className="adm-grade-chart" role="group" aria-label="등급별 요청 건수. 등급을 선택하면 항목별 통계와 요청 목록을 필터링합니다.">{grades.map(grade => {
         const count = scopeMetrics.gradeCounts.find(item => item.grade === grade)?.count ?? 0;
@@ -206,15 +203,13 @@ export default function AdminDashboard({requests, metrics, contracts = [], selec
       })}</div><p className="adm-chart-note"><Info size={14} aria-hidden="true" />등급 미산정은 처리 중·실패·결과 확인 필요 요청입니다. 등급을 누르면 항목별 통계와 요청 목록을 함께 볼 수 있습니다.</p></section>
 
       <section className="adm-panel adm-field-panel" aria-labelledby="adm-field-chart-title">
-        <div className="adm-field-heading"><h2 className="adm-field-title" id="adm-field-chart-title">항목별 불일치 건수</h2><p className="adm-field-description">기본 대조 9개 · 추가 검사 3개</p></div>
-        <p className="adm-field-intro">{fieldScopeLabel} <span>단위: 건</span></p>
+        <div className="adm-field-heading"><h2 className="adm-field-title" id="adm-field-chart-title">항목별 불일치 건수</h2></div>
         {mismatchFields.length > 0 ? <div className="adm-field-chart" role="list" aria-label="불일치가 발생한 대조 항목">{mismatchFields.map(renderFieldRow)}</div>
           : <p className="adm-field-empty" role="status">{fieldMetrics.comparedRequests === 0 ? '아직 집계할 대조 결과가 없습니다.' : otherFields.some(field => field.unavailableCount > 0) ? '확인된 항목에서 불일치가 없습니다.' : '선택한 범위에 불일치 항목이 없습니다.'}</p>}
         {otherFields.length > 0 && <details className="adm-field-more">
           <summary className="adm-field-summary"><span className="adm-field-show">나머지 {otherFields.length}개 항목 펼치기</span><span className="adm-field-hide">나머지 {otherFields.length}개 항목 접기</span><ChevronDown size={17} aria-hidden="true" /></summary>
           <div className="adm-field-chart" role="list" aria-label="불일치가 확인되지 않은 나머지 대조 항목">{otherFields.map(renderFieldRow)}</div>
         </details>}
-        <p className="adm-chart-note"><Info size={14} aria-hidden="true" />항목을 누르면 해당 불일치 요청을 볼 수 있습니다. 평가 완료 요청의 확인된 개별 결과만 집계합니다. 한 요청의 여러 불일치는 각 항목에 포함하며, 개별 결과가 없으면 —로 표시합니다.</p>
       </section>
       </div>
     </div>
