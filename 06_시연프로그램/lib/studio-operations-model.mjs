@@ -46,14 +46,15 @@ export function normalizeStudioOperationsState(input, session) {
     if (updated > updatedAt) updatedAt = updated;
     const routing = job.document_routing_required === true;
     const completed = job.processing_status === 'completed';
-    const stored = job.collection_status === 'stored';
+    const contractRejected = completed && job.kind === 'contract' && job.contract_validation === 'red';
+    const stored = !contractRejected && job.collection_status === 'stored';
     let grade = completed && !routing && job.evaluation_status === 'completed' && Number.isInteger(job.grade) && job.grade >= 1 && job.grade <= 6 ? job.grade : null;
     const fields = record(job.request_fields), contract = record(job.matched_contract);
     const stateLabel = processingLabels[job.processing_status] || (routing ? '문서 종류 확인 필요 · 대조 대상 아님'
-      : job.kind === 'contract' ? (stored ? '등록 완료' : '분석 완료 · 저장 미확인') : job.evaluation_status === 'incomplete' ? '미평가 · 정보 확인 필요'
+      : job.kind === 'contract' ? (contractRejected ? '필수 정보 확인 필요 · 등록 안 됨' : stored ? '등록 완료' : '분석 완료 · 저장 미확인') : job.evaluation_status === 'incomplete' ? '미평가 · 정보 확인 필요'
       : grade !== null ? `대조 완료 · ${grade}등급` : stored ? '처리 완료 · 저장 확인' : '처리 완료 · 저장 미확인');
     receipts.push({id:job.id,receivedAt,fileNames:[job.filename],kind:job.kind,status:job.processing_status === 'failed' ? 'failed' : 'received',
-      stateLabel,documentStatus:routing ? 'routing' : completed ? 'completed' : ['failed','uncertain'].includes(job.processing_status) ? 'needs_attention' : 'checking',
+      stateLabel,documentStatus:routing ? 'routing' : contractRejected ? 'needs_attention' : completed ? 'completed' : ['failed','uncertain'].includes(job.processing_status) ? 'needs_attention' : 'checking',
       ...(routing ? {routing:{detectedKind:job.kind === 'request' ? 'contract' : 'request',message:'문서 종류를 확인해 올바른 경로로 새로 접수해 주세요.',canContinue:false}} : {}),
       ...(job.processing_status === 'failed' ? {error:'문서 자동 처리를 완료하지 못했습니다.'} : {})});
     if (job.kind !== 'request' || routing) continue;

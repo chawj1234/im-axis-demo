@@ -4,7 +4,7 @@ export type StudioConfig = {configuration_mode:'latest'|'pinned'; enabled:boolea
 export type StudioJob = {
   id:string; kind:StudioKind; filename:string; document_id:string; received_at:string; updated_at:string;
   processing_status:'received'|'uploading'|'creating'|'queued'|'in_progress'|'completed'|'failed'|'uncertain';
-  evaluation_status:'pending'|'completed'|'incomplete'|'not_applicable'; collection_status:'unconfirmed';
+  evaluation_status:'pending'|'completed'|'incomplete'|'not_applicable'; collection_status:'unconfirmed'|'stored'; contract_validation?:'green'|'red'|null;
   grade:number|null; decision_label:string|null; reason:string|null; document_routing_required:boolean;
   document_request_id:string|null; document_contract_id:string|null; studio_job_id:string|null;
   configuration_mode:'latest'|'pinned'; resolved_config_id:string|null; error_code:string|null;
@@ -42,7 +42,7 @@ export function studioJobStatus(job:StudioJob, role:StudioRole):string {
   if(job.processing_status === 'failed') return '처리 실패 · 담당자 확인 필요';
   if(job.processing_status !== 'completed') return ({received:'접수 완료 · 처리 대기',uploading:'문서 전송 중',creating:'분석 연결 중',queued:'분석 대기',in_progress:'분석 중'})[job.processing_status];
   if(job.document_routing_required) return role === 'banker' ? '문서 종류 확인 필요 · 대조 대상 아님' : '문서 종류 확인 안내 · 대조 대상 아님';
-  if(job.kind === 'contract') return '분석 완료 · 저장 미확인';
+  if(job.kind === 'contract') return job.contract_validation === 'red' ? '필수 정보 확인 필요 · 등록 안 됨' : job.collection_status === 'stored' ? '등록 완료' : '분석 완료 · 저장 미확인';
   if(role === 'banker') return '처리 완료 · 저장 미확인';
   if(job.evaluation_status === 'incomplete') return '미평가 · 정보 확인 필요';
   if(job.evaluation_status !== 'completed' || !Number.isInteger(job.grade) || Number(job.grade)<1 || Number(job.grade)>6) return '결과 확인 필요';

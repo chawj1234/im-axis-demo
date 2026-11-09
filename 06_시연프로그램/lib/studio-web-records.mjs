@@ -35,7 +35,7 @@ export function studioWebRecords({runtime, client, env}) {
     for (const record of records) {
       for (const job of record.jobs) {
         const isStored = job.processing_status === 'completed' && !job.document_routing_required
-          && stored[job.kind]?.has(job.studio_job_id);
+          && job.contract_validation !== 'red' && stored[job.kind]?.has(job.studio_job_id);
         // Keep this session's pending/failed/unexported receipts visible. Export
         // confirmation enriches a receipt; it must not erase its processing state.
         if (record.session_id !== session && !isStored) continue;

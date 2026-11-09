@@ -113,3 +113,39 @@ test('multiple JSON blocks and conflicting decoded evidence never acquire a conf
  value.output.at(-1).content[0].text='```json\n'+JSON.stringify(wrongId)+'\n```\n- 설명입니다.';
  assert.throws(()=>readStudioDecision(value,ids),/identity_mismatch/);
 });
+
+test('request FLOW #5 accepts the documented five keys and revalidates canonical history', () => {
+  const normal = body();
+  delete normal.purpose_review;
+  delete normal.reason;
+  const accepted = read(normal);
+  assert.equal(accepted.final_grade, 6);
+  assert.equal(accepted.body.purpose_review, null);
+  assert.equal(accepted.body.requested_ratio, null);
+  assert.equal(acceptStudioDecision({decision:'6등급', body:accepted.body, ...ids}).final_grade, 6);
+
+  const mismatch = {...normal, evaluation_status:'mismatch',
+    grade_basis:{requested_amount_krw:90, contract_limit_krw:100, ratio:.9, applied_rule:'80% 초과'}};
+  const result = read(mismatch, '1등급', 'red');
+  assert.equal(result.final_grade, 1);
+  assert.equal(result.body.validation.basic.checks[0].passed, false);
+  assert.equal(result.body.requested_ratio, .9);
+  assert.throws(() => read({...mismatch, grade_basis:null}, '1등급', 'red'), /evidence/);
+  assert.throws(() => read(normal, '6등급', 'red'), /evidence/);
+  const explicitV5 = {...response({...normal, reason:null}), config_id:'cfg_DxGdQmrKZpnzxM4wWtqFEq'};
+  assert.throws(() => readStudioDecision(explicitV5, ids), /body_incomplete/);
+});
+
+test('request FLOW #5 retains the actual reason for incomplete input and unknown additional checks', () => {
+  const incomplete = {...body(), evaluation_status:'incomplete', checks:null, reason:'등록계약을 확인해 주세요.'};
+  delete incomplete.purpose_review;
+  const input = read(incomplete, '미평가', null, 'red');
+  assert.equal(input.final_grade, null);
+  assert.equal(input.body.validation.input.verdict, 'red');
+  const additional = {...incomplete, checks:{...body().checks, date:{status:'unknown', basis:'날짜 확인 필요'}}};
+  const result = read(additional, '미평가');
+  assert.equal(result.body.date_check.status, 'unknown');
+  assert.equal(result.final_grade, null);
+  delete incomplete.reason;
+  assert.throws(() => read(incomplete, '미평가', null, 'red'), /body_incomplete/);
+});

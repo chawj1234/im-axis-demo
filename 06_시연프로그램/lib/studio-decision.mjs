@@ -14,7 +14,32 @@ function validateMetadata(value) {
   return structuredClone(value);
 }
 
-function normalizeV40(body, grade, decision) {
+function readValidationStage(stages, name, {optional = false, legacy = false} = {}) {
+  const matches = stages.filter(stage => stage.name === 'Validate - ' + name && stage.status === 'completed')
+    .flatMap(stage => stage.contents);
+  if (optional && matches.length === 0) return null;
+  if (legacy && !matches.some(item => object(item.additional_values)
+    && ('verdict' in item.additional_values || 'checks' in item.additional_values))) return null;
+  if (matches.length !== 1) throw Error('studio_validation_stage_invalid');
+  const metadata = validateMetadata(matches[0].additional_values);
+  if (matches[0].value !== metadata.verdict) throw Error('studio_validation_evidence_invalid');
+  return metadata;
+}
+
+/** Absent contract evidence can be historical; it never confirms an export. */
+export function readStudioContractValidation(response) {
+  const output = (response.output ?? []).filter(stage => stage.model === 'Validate - 계약-필수값검증');
+  return readValidationStage(studioOutputStages({...response, output}), '계약-필수값검증', {optional: true});
+}
+
+// Request FLOW #5 omits purpose_review and only emits reason for incomplete results.
+const requestV5Keys = ['request_id', 'contract_id', 'evaluation_status', 'checks', 'grade_basis'];
+function hasRequestV5Body(body) {
+  const expected = body.evaluation_status === 'incomplete' ? [...requestV5Keys, 'reason'] : requestV5Keys;
+  return Object.keys(body).length === expected.length && expected.every(key => Object.hasOwn(body, key));
+}
+
+function normalizeStructuredDecision(body, grade, decision) {
   body = structuredClone(body);
   // The live v40 match branch can omit non-applicable fields and echo the enum.
   // Accept an exact echo only; the dedicated API enum remains the sole authority.
@@ -71,7 +96,7 @@ export function acceptStudioDecision({decision, body, expectedRequestId, expecte
   if (!labels.has(decision)) throw Error('studio_decision_missing_or_invalid');
   const grade = labels.get(decision);
   const v40 = object(body) && (Object.hasOwn(body, 'checks') || Object.hasOwn(body, 'grade_basis'));
-  if (v40) body = normalizeV40(body, grade, decision);
+  if (v40) body = normalizeStructuredDecision(body, grade, decision);
   // Older Instruct bodies also have per-field evidence in Validate stage metadata.
   if (!v40 && object(body?.validation)) {
     const input = body.validation.input == null ? null : validateMetadata(body.validation.input);
@@ -174,17 +199,17 @@ export function readStudioDecision(response, {expectedRequestId, expectedContrac
       body: structuredClone(content.value), source: 'studio_enum', stage_name: stage.name, stage_id: stage.id, stages};
   }
   let body = content.value;
+  const requestV5 = response.config_id === 'cfg_DxGdQmrKZpnzxM4wWtqFEq' || hasRequestV5Body(body);
+  if (requestV5) {
+    if (!hasRequestV5Body(body)) throw Error('studio_decision_body_incomplete');
+    // Canonical storage keeps the old nullable field for historical readers.
+    body = {...body, purpose_review: null};
+  }
   if (Object.hasOwn(body, 'checks') || Object.hasOwn(body, 'grade_basis')) {
-    const validation = {};
-    for (const [key, name] of [['input', '요청-입력검증'], ['basic', '요청-기본대조']]) {
-      const matches = stages.filter(item => item.name === 'Validate - ' + name && item.status === 'completed')
-        .flatMap(item => item.contents);
-      if (matches.length === 0 && key === 'basic') { validation[key] = null; continue; }
-      if (matches.length !== 1) throw Error('studio_validation_stage_invalid');
-      const metadata = validateMetadata(matches[0].additional_values);
-      if (matches[0].value !== metadata.verdict) throw Error('studio_validation_evidence_invalid');
-      validation[key] = metadata;
-    }
+    const validation = {
+      input: readValidationStage(stages, '요청-입력검증'),
+      basic: readValidationStage(stages, '요청-기본대조', {optional: true}),
+    };
     const expectedStage = validation.input.verdict === 'red' ? 'Instruct - 입력부족-안내'
       : validation.basic?.verdict === 'green' ? 'Instruct - 추가검사-기본일치' : 'Instruct - 추가검사-기본불일치';
     if (stage.name !== expectedStage) throw Error('studio_validation_stage_invalid');
@@ -192,15 +217,8 @@ export function readStudioDecision(response, {expectedRequestId, expectedContrac
   } else {
     const validation = {};
     for (const [key, name] of [['input', '요청-입력검증'], ['basic', '요청-기본대조']]) {
-      const matches = stages.filter(item => item.name === 'Validate - ' + name && item.status === 'completed')
-        .flatMap(item => item.contents);
-      // Historical responses may contain a branch only. Leave absent details absent.
-      if (!matches.some(item => object(item.additional_values)
-        && ('verdict' in item.additional_values || 'checks' in item.additional_values))) continue;
-      if (matches.length !== 1) throw Error('studio_validation_stage_invalid');
-      const metadata = validateMetadata(matches[0].additional_values);
-      if (matches[0].value !== metadata.verdict) throw Error('studio_validation_evidence_invalid');
-      validation[key] = metadata;
+      const metadata = readValidationStage(stages, name, {legacy: true});
+      if (metadata) validation[key] = metadata;
     }
     if (Object.keys(validation).length) body = {...body, validation};
   }

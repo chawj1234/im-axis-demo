@@ -1,6 +1,6 @@
 import {createHash, randomUUID} from 'node:crypto';
 import {RecordStore, validSession} from './record-store.mjs';
-import {acceptStudioDecision, readStudioDecision, studioOutputStages} from './studio-decision.mjs';
+import {acceptStudioDecision, readStudioDecision, readStudioContractValidation, studioOutputStages} from './studio-decision.mjs';
 import {projectStudioDecision} from './studio-view.mjs';
 import {summarizeStudioReport} from './studio-report-summary.mjs';
 
@@ -133,6 +133,7 @@ export class StudioRuntime {
       job.processing_status = 'failed'; job.error_code = 'studio_analysis_failed'; return;
     }
     if (job.kind === 'contract') {
+      job.contract_validation = readStudioContractValidation(response)?.verdict ?? null;
       job.processing_status = 'completed'; job.evaluation_status = 'not_applicable'; return;
     }
     // Routing is decoded before requiring Extract, as wrong-document has no request IDs.
@@ -200,6 +201,7 @@ export class StudioRuntime {
       reason: view?.reason ?? (job.document_routing_required ? job.result?.body.reason ?? null : null),
       checks: view?.additionalChecks ?? [], basic_comparison: view?.basicComparison ?? 'unknown',
       studio_url: id('agt_', job.agent_id) ? 'https://studio.upstage.ai/agents/' + job.agent_id : null});
+    dto.contract_validation = job.kind === 'contract' && ['green', 'red'].includes(job.contract_validation) ? job.contract_validation : null;
     dto.validation = role === 'admin' ? job.result?.body.validation ?? null : null;
     dto.purpose_review = role === 'admin' ? job.result?.body.purpose_review ?? null : null;
     dto.partial_evidence = role === 'admin' && job.result?.partial_evidence === true;

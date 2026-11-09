@@ -78,3 +78,45 @@ test('fenced, double-encoded result plus citations survives the full live result
  output.text=fenced+'\n```json\n{}\n```';
  assert.throws(()=>runtime.applyResponse(session,structuredClone(job),result),/json_ambiguous/);
 });
+
+test('contract FLOW #20 separates validation failure, pending export and confirmed registration', async t => {
+ const root = await mkdtemp(join(tmpdir(), 'axis-contract-validation-'));
+ t.after(() => rm(root, {recursive:true, force:true}));
+ const runtime = new StudioRuntime({root, client:{upload(){},create(){},retrieve(){}},
+  workflows:{contract:{agentId:'agt_contract',configMode:'latest',collectionId:'scol_contract'}}});
+ const now = new Date().toISOString();
+ const job = {id:'receipt-contract',kind:'contract',filename:'contract.pdf',document_id:'document-contract',
+  received_at:now,updated_at:now,configuration_mode:'latest'};
+ const snapshot = () => normalizeStudioOperationsState(readStudioSnapshot(runtime.projectState(session,'banker',[job]),session,'banker'),session);
+ for (const passed of [false,true]) {
+  runtime.applyResponse(session,job,{status:'completed',output:[validate('계약-필수값검증',passed)]});
+  assert.equal(job.processing_status,'completed');
+  assert.equal(job.contract_validation,passed?'green':'red');
+  job.collection_status = 'unconfirmed';
+  assert.equal(snapshot().receipts[0].stateLabel,passed?'분석 완료 · 저장 미확인':'필수 정보 확인 필요 · 등록 안 됨');
+  job.collection_status = 'stored';
+  assert.equal(snapshot().receipts[0].stateLabel,passed?'등록 완료':'필수 정보 확인 필요 · 등록 안 됨');
+  assert.equal(snapshot().receipts[0].documentStatus,passed?'completed':'needs_attention');
+  assert.equal(snapshot().requests.length,0);
+ }
+ const contradictory = validate('계약-필수값검증',false);
+ contradictory.content[0].text = JSON.stringify('green');
+ assert.throws(() => runtime.applyResponse(session,{...job},{status:'completed',output:[contradictory]}),/validation_evidence/);
+});
+
+test('the new request shape reaches the dashboard with no artificial purpose check', async t => {
+ const root=await mkdtemp(join(tmpdir(),'axis-request-v5-'));t.after(()=>rm(root,{recursive:true,force:true}));
+ const runtime=new StudioRuntime({root,client:{upload(){},create(){},retrieve(){}},workflows:{request:{agentId:'agt_v40',configMode:'latest',collectionId:'scol_v40'}}});
+ const result=completed();
+ const content=result.output.at(-1).content[0], value=JSON.parse(content.text);
+ delete value.purpose_review;delete value.reason;content.text=JSON.stringify(value);
+ const now=new Date().toISOString();
+ const job={id:'REQ-v5',receipt_id:'REQ-v5',session_id:session,kind:'request',filename:'request.pdf',document_id:'document-v5',studio_job_id:'job_v40',agent_id:'agt_v40',collection_id:'scol_v40',received_at:now,updated_at:now,configuration_mode:'latest'};
+ runtime.applyResponse(session,job,result);
+ const state=runtime.projectState(session,'admin',[job]);
+ assert.equal(state.summary_error,undefined);
+ const [request]=normalizeStudioOperationsState(readStudioSnapshot(state,session,'admin'),session).requests;
+ assert.equal(request.grade,6);
+ assert.equal(request.purposeReview,undefined);
+ assert.equal(request.checks.find(c=>c.key==='payout_account').status,'match');
+});
