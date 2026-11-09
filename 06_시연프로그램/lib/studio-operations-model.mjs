@@ -14,6 +14,14 @@ const definitions = [
   ['outstanding_check','outstanding_arithmetic','실행 후 예상 잔액'],
   ['available_check','available_arithmetic','실행 후 예상 한도여유'],
 ];
+const basicDefinitions = [
+  ['약정번호 일치','contract_reference'], ['입금계좌 일치','payout_account'],
+  ['요청금액 한도 이하','contract_limit'], ['사업자번호 일치','business_identifier'],
+  ['입금은행 일치','payout_bank'], ['여신과목 일치','credit_product'],
+  ['승인한도 일치','declared_credit_limit'], ['신청인명 일치','company_name'], ['입금예금주 일치','payout_holder'],
+];
+const comparisonValue = value => typeof value === 'string' ? text(value) || '미확인'
+  : typeof value === 'number' && Number.isFinite(value) ? String(value) : '미확인';
 const processingLabels = {received:'접수 완료 · 처리 대기',uploading:'문서 전송 중',creating:'분석 연결 중',queued:'분석 대기',in_progress:'분석 중',failed:'처리 실패 · 담당자 확인 필요',uncertain:'접수 연결 확인 필요 · 자동 재실행 안 함'};
 
 /** Adapts verified Studio results and session-scoped processing records. */
@@ -69,10 +77,28 @@ export function normalizeStudioOperationsState(input, session) {
     const files = [{name:job.filename,...(text(job.document_id) ? {page:1,url:demoApiUrl('/api/studio/document?session=' + encodeURIComponent(session) + '&id=' + encodeURIComponent(job.document_id))} : {})}];
     const logs = receivedAt ? [{at:receivedAt,label:'서류 접수'}] : [];
     if (updated) logs.push({at:updated,label:stored ? 'Studio 분석 완료 확인' : receipts[receipts.length - 1].stateLabel});
+    // Details supplement the aggregate evidence; they never calculate a new grade.
+    const validation = state.role === 'banker' ? {} : record(job.validation);
+    const basic = record(validation.basic), inputValidation = record(validation.input);
+    if (completed && Array.isArray(basic.checks)) {
+      for (const [label,key] of basicDefinitions) {
+        const candidates = basic.checks.filter(check => record(check).name === label);
+        if (candidates.length !== 1 || typeof candidates[0].passed !== 'boolean') continue;
+        const detail = candidates[0], condition = record(detail.conditions);
+        checks.push({key,label,requestValue:comparisonValue(record(condition.left).value),
+          contractValue:comparisonValue(record(condition.right).value),status:detail.passed ? 'match' : 'mismatch',note:text(detail.reason) || undefined});
+      }
+    }
+    const validationFailures = completed && inputValidation.verdict === 'red' && Array.isArray(inputValidation.checks)
+      ? inputValidation.checks.filter(check => record(check).passed === false && text(check.name)).map(check => ({name:text(check.name),fields:[],reason:text(check.reason) || 'Studio 검증 결과를 확인해 주세요.'})) : [];
+    const purpose = state.role === 'banker' ? '' : text(job.purpose_review);
     requests.push({id:job.id,receiptId:stored ? text(job.document_request_id) || job.id : job.id,...(text(job.document_contract_id) ? {contractId:text(job.document_contract_id)} : {}),receivedAt,companyName:text(fields.requester_name) || job.filename,
       contractReference:text(job.document_contract_id) || text(fields.contract_id) || '미확인',contractAmount:won(contract.credit_limit_krw),requestedAmount:won(fields.requested_amount_krw),
       ratio:typeof job.requested_ratio === 'number' && Number.isFinite(job.requested_ratio) && job.requested_ratio >= 0 && Number.isFinite(job.requested_ratio * 100) ? job.requested_ratio * 100 : null,
-      grade,processing,checks,files,logs,policyVersion:STUDIO_OPERATIONS_POLICY_VERSION,
+      grade,processing,checks,files,logs,
+      ...(validationFailures.length ? {validationFailures} : {}),
+      ...(purpose ? {purposeReview:{key:'fund_purpose',label:'자금용도 별도 검토',contractValue:'미확인',requestValue:'미확인',status:'unknown',note:purpose}} : {}),
+      policyVersion:STUDIO_OPERATIONS_POLICY_VERSION,
       ...(grade === null && processing !== 'processing' ? {gradeReason:processing === 'failed' ? '처리 실패' : job.evaluation_status === 'incomplete' ? '추출값 확인 필요' : '대조 결과 없음'} : {}),
       studio:{decision:completed ? text(job.decision_label) || null : null,reason:completed ? text(job.reason) || null : null,jobId:text(job.studio_job_id) || null,url:safeUrl(job.studio_url),collectionStatus:stored ? 'stored' : 'unconfirmed',configurationMode:['latest','pinned'].includes(job.configuration_mode) ? job.configuration_mode : state.configuration_mode,resolvedConfigId:text(job.resolved_config_id) || null}});
   }

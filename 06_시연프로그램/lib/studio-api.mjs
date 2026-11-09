@@ -64,7 +64,7 @@ export function studioWorkflows(env) {
     }
     return workflows;
 }
-/** Opt-in Studio API: isolated from the legacy n8n engine and its private store. */
+/** Studio API with private receipt storage and role-specific projections. */
 export function studioApi(options = {}) {
     const env = options.env || process.env;
     const askCoworker = options.askCoworker || askStudioCoworker;

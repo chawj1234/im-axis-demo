@@ -20,7 +20,7 @@ test('both submitted workflows create new jobs without a pinned config_id', asyn
   for (const workflow of Object.values(chosen.workflows)) {
     await client.create({fileId: 'file-test', agentId: workflow.agentId, configMode: workflow.configMode});
   }
-  assert.deepEqual(calls.map(call => call.body.model), ['agt_dfaNnfcPV4YFViycgD62ou', 'agt_n28WfqiSmvszdL4QNEWYqe']);
+  assert.deepEqual(calls.map(call => call.body.model), ['agt_dfaNnfcPV4YFViycgD62ou', 'agt_knWWp6FZnD4fqgUewAFNNG']);
   for (const call of calls) {
     assert.equal(Object.hasOwn(call.body, 'config_id'), false);
     assert.equal(call.project, template.STUDIO_PROJECT_ID);

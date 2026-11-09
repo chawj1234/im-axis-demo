@@ -49,15 +49,15 @@ const state={provider:'studio',session_id:'test-session',jobs:[],configuration_m
 test('actual incumbent refresh enforces Studio endpoint and session isolation; stale data survives errors',async t=>{
   const ui=harness();const urls=[];let response=state;
   t.mock.method(globalThis,'fetch',async url=>{urls.push(String(url));return {ok:true,json:async()=>response};});
-  ui.render();assert.equal(ui.configEffect(),undefined);await ui.refresh();
-  assert.equal(ui.states[8],true);assert.equal(ui.states[0].receipts.length,0);assert.match(urls[0],/api\/studio\/state\?session=test-session&role=banker/);
+  ui.render();await ui.refresh();
+  assert.equal(ui.states[6],true);assert.equal(ui.states[0].receipts.length,0);assert.match(urls[0],/api\/studio\/state\?session=test-session&role=banker/);
   const snapshot=ui.states[0];response={...state,session_id:'other-session'};
   ui.render();await ui.refresh();assert.equal(ui.states[0],snapshot);assert.equal(ui.states[4],false);assert.match(ui.states[2],/불러오지 못했습니다/);
 });
 test('config loading and failure keep original navigation and block state and legacy calls',async t=>{
   let calls=0;t.mock.method(globalThis,'fetch',async()=>{calls++;throw Error('unexpected');});
   for(const connection of [{connectionPending:true},{connectionError:true}]){
-    const ui=harness({...connection,studioConfig:undefined});const tree=ui.render();await ui.refresh();ui.configEffect();
+    const ui=harness({...connection,studioConfig:undefined});const tree=ui.render();await ui.refresh();
     assert.ok(find(tree,node=>node.props?.className==='ops-sidebar'));assert.ok(find(tree,node=>node.props?.className==='ops-nav-active'));assert.ok(find(tree,node=>node.props?.className==='ops-role-links'));
   }
   assert.equal(calls,0);
@@ -70,6 +70,17 @@ test('actual Studio intake posts only PDF and session and blocks unconfigured co
   await intake.props.onSubmitRequest(file,'ignored-contract');
   const post=calls.find(call=>call.options?.method==='POST');assert.match(post.url,/api\/studio\/intake\?kind=request&session=test-session/);assert.deepEqual([...post.options.body.keys()],['session_id','file']);
   await assert.rejects(()=>intake.props.onRegisterContract(file),/Studio 연결 설정/);
-  await assert.rejects(()=>intake.props.onContinueDocument('receipt-1'),/실제 접수 연결/);
+  await assert.rejects(()=>intake.props.onContinueDocument('receipt-1'),/올바른 경로/);
   assert.equal(calls.filter(call=>call.options?.method==='POST').length,1);
+});
+
+test('connected wrapper rejects a non-Studio configuration without mounting an alternate provider',async t=>{
+ const states=[];let cursor=0,effect;
+ const Connected=load('connected-operations-workspace',{
+  react:{...React,useState:initial=>{const i=cursor++;if(!(i in states))states[i]=initial;return[states[i],value=>{states[i]=typeof value==='function'?value(states[i]):value;}];},useEffect:fn=>{effect=fn;}},
+  './operations-workspace':Child,'../lib/studio-screen-types':screen,
+ });
+ t.mock.method(globalThis,'fetch',async()=>({ok:true,json:async()=>({lifecycle_intake:{enabled:true}})}));
+ Connected({role:'banker'});const cleanup=effect();await new Promise(resolve=>setImmediate(resolve));cursor=0;
+ const tree=Connected({role:'banker'});assert.equal(tree.props.connectionError,true);assert.equal(tree.props.connectionPending,false);assert.equal(tree.props.studioConfig,undefined);assert.equal(tree.key,'connecting');cleanup();
 });

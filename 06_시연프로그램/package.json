@@ -9,7 +9,7 @@
     "team:check": "node scripts/team-demo.mjs --check",
     "team:demo": "node scripts/team-demo.mjs",
     "demo": "npm run team:demo",
-    "test": "node --test tests/team-demo.test.mjs tests/studio-web-records.test.mjs tests/studio-latest.test.mjs tests/studio-runtime.test.mjs tests/studio-api.test.mjs tests/studio-screen.test.mjs tests/studio-incumbent-ui.test.mjs tests/studio-operations-model.test.mjs tests/demo-api.test.mjs tests/studio-report-guard.test.mjs",
+    "test": "node --test tests/studio-only-ui.test.mjs tests/studio-v40-decision.test.mjs tests/studio-v40-runtime.test.mjs tests/studio-v40-admin.test.mjs tests/team-demo.test.mjs tests/studio-web-records.test.mjs tests/studio-report-guard.test.mjs tests/studio-latest.test.mjs tests/studio-runtime.test.mjs tests/studio-api.test.mjs tests/studio-screen.test.mjs tests/studio-incumbent-ui.test.mjs tests/studio-operations-model.test.mjs tests/demo-api.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

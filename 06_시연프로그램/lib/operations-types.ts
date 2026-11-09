@@ -82,6 +82,6 @@ export interface OperationsMetrics {
   mismatchRate: number | null;
   unevaluatedRequests: number;
   gradeCounts: {grade: ReviewGrade | null; count: number}[];
-  mismatchFields: {key: OperationsCheck['key']; label: string; count: number}[];
+  mismatchFields: {key: OperationsCheck['key']; label: string; count: number; unavailableCount: number}[];
 }
 export interface IntakeReceiptResult {receiptId: string; receivedAt: string; duplicate?: boolean}

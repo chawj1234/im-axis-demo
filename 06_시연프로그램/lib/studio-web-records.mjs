@@ -1,8 +1,8 @@
 /** Collection membership confirms storage. The web intake journal establishes origin. */
 export function studioWebRecords({runtime, client, env}) {
   const collections = {
-    request: env.STUDIO_RESULT_COLLECTION_ID || 'scol_u-0a1LbueY6LGGUuUuacm-t2HUgGMYOAkkrAhw83fxo',
-    contract: env.STUDIO_REGISTERED_CONTRACT_COLLECTION_ID || 'scol_W90-qE5CP-ua8wUE9lmyX3I7lGCyjQU8igciJIC5sfA',
+    request: env.STUDIO_RESULT_COLLECTION_ID || 'scol_AOhAgiu2xEtdGSQ8eaLvtdKZAECvLY69McrjFXCHDDc',
+    contract: env.STUDIO_REGISTERED_CONTRACT_COLLECTION_ID || 'scol_6g-Mc4eJ09AyjJDpK4fxU2C28WgzalwKF1GizESaWL0',
   };
   let membership, pending, expires = 0;
 

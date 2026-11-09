@@ -43,6 +43,14 @@ export function operationsStatusCounts(requests: readonly OperationsRequest[]) {
   return counts;
 }
 
+/** An explicit incomplete decision is distinct from missing or inconsistent results. */
+export function operationsProcessingCounts(requests: readonly OperationsRequest[]) {
+  const counts = operationsStatusCounts(requests);
+  const incomplete = requests.filter(request => request.processing === 'completed' && request.grade === null && request.studio?.decision === '미평가').length;
+  return {total: counts.all, evaluated: counts.match + counts.mismatch, incomplete,
+    processing: counts.processing, failed: counts.failed, review: counts.review - incomplete};
+}
+
 export function formatWon(value: number | null): string {
   return value !== null && Number.isFinite(value) && value >= 0
     ? new Intl.NumberFormat('ko-KR').format(value) + '원' : '미확인';

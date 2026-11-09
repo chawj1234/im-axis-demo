@@ -3,7 +3,7 @@ import {acceptStudioDecision} from './studio-decision.mjs';
 const text = value => typeof value === 'string' && value.trim() && !/[\u0000-\u001f\u007f]/.test(value);
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 
-/** Admin-facing view contract, independent of the legacy n8n policy/check schema.
+/** Admin-facing view contract, based on verified Studio decision evidence.
  * This projection does not assert that a completed Job was exported to a collection.
  * Customer notifications must not use its unmasked evidence/reason fields.
  */

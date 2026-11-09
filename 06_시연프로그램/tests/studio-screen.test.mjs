@@ -61,12 +61,13 @@ test('screen connection preserves full incumbent workspace and minimal Studio in
   const wrapper=await readFile(new URL('../components/connected-operations-workspace.tsx',import.meta.url),'utf8');
   assert.match(wrapper,/AbortSignal/);assert.match(wrapper,/readStudioConfig/);assert.match(wrapper,/OperationsWorkspace.*role/);
   assert.doesNotMatch(wrapper,/StudioWorkspace|studio-workspace.css|studio-gate/);
-  assert.match(wrapper,/key=\{config \? 'studio' : config === null \? 'legacy' : 'connecting'\}/);
+  assert.match(wrapper,/key=\{config \? 'studio' : 'connecting'\}/);
+  assert.match(wrapper,/studio_configuration_required/);
   assert.match(ui,/다시 연결/);assert.match(ui,/normalizeStudioOperationsState\(readStudioSnapshot\(data, session, role\), session\)/);
   assert.match(ui,/controller.current/);assert.match(ui,/controller.current\?\.abort\(\)/);
   assert.match(ui,/&role=' \+ role/);assert.match(ui,/api\/studio\/intake\?kind=/);
-  assert.match(ui,/if \(!studioConfig && contractId\) form.set/);
-  assert.match(ui,/if\(studioConfig\|\|preview/);assert.match(ui,/if \(studioConfig \|\| preview/);
+  assert.doesNotMatch(ui,/form.set\('contract_id'/);
+  assert.match(ui,/requestMatching="studio"/);
   assert.match(ui,/<StudioCoworkerPanel/);
   for(const role of ['banker','admin']){
     assert.match(await readFile(new URL(`../app/${role}/page.tsx`,import.meta.url),'utf8'),/ConnectedOperationsWorkspace/);

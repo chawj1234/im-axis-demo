@@ -200,6 +200,8 @@ export class StudioRuntime {
       reason: view?.reason ?? (job.document_routing_required ? job.result?.body.reason ?? null : null),
       checks: view?.additionalChecks ?? [], basic_comparison: view?.basicComparison ?? 'unknown',
       studio_url: id('agt_', job.agent_id) ? 'https://studio.upstage.ai/agents/' + job.agent_id : null});
+    dto.validation = role === 'admin' ? job.result?.body.validation ?? null : null;
+    dto.purpose_review = role === 'admin' ? job.result?.body.purpose_review ?? null : null;
     dto.partial_evidence = role === 'admin' && job.result?.partial_evidence === true;
     dto.request_fields = role === 'admin' ? job.request_fields ?? null : null;
     dto.matched_contract = role === 'admin' ? job.matched_contract ?? null : null;

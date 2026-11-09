@@ -27,3 +27,23 @@ test('a collection read failure is an error, never an apparently successful empt
     client: {async collectionFiles() {throw Error('studio_authentication_failed');}}});
   await assert.rejects(read('own'), /studio_authentication_failed/);
 });
+
+test('latest Flow collections are the default membership scope without rewriting receipts', async () => {
+  const calls = [];
+  const old = {id: 'old-receipt', kind: 'request', processing_status: 'completed', studio_job_id: 'job_old', collection_id: 'scol_previous', document_id: 'old-document'};
+  const fresh = {id: 'new-receipt', kind: 'request', processing_status: 'completed', studio_job_id: 'job_new', collection_id: 'scol_AOhAgiu2xEtdGSQ8eaLvtdKZAECvLY69McrjFXCHDDc', document_id: 'new-document'};
+  const records = {own: {session_id: 'own', jobs: [old, fresh]}};
+  const runtime = {store: {async sessions() {return ['own'];}, async read(id) {return records[id];}},
+    projectState(session, role, jobs) {return {session, role, jobs};}};
+  const client = {async collectionFiles(id) {
+    calls.push(id);
+    return id === 'scol_AOhAgiu2xEtdGSQ8eaLvtdKZAECvLY69McrjFXCHDDc' ? [{status: 'completed', studio: {job_id: 'job_new'}}] : [];
+  }};
+  const state = await studioWebRecords({runtime, client, env: {}})('own', 'admin');
+  assert.deepEqual(calls, ['scol_AOhAgiu2xEtdGSQ8eaLvtdKZAECvLY69McrjFXCHDDc', 'scol_6g-Mc4eJ09AyjJDpK4fxU2C28WgzalwKF1GizESaWL0']);
+  assert.equal(state.jobs[0].collection_status, 'unconfirmed');
+  assert.equal(state.jobs[0].collection_id, 'scol_previous');
+  assert.equal(state.jobs[1].collection_status, 'stored');
+  assert.deepEqual(records.own.jobs, [old, fresh]);
+  assert.equal(Object.hasOwn(old, 'collection_status'), false);
+});

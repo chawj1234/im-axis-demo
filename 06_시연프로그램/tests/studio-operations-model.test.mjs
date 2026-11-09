@@ -46,8 +46,8 @@ test('adapter through incumbent metrics and status keeps aggregate mismatch and 
  ]),session);
  const metrics=operationsMetrics(snapshot.requests);
  assert.equal(metrics.totalRequests,5);assert.equal(metrics.comparedRequests,2);assert.equal(metrics.mismatchRequests,1);assert.equal(metrics.mismatchRate,50);assert.equal(metrics.unevaluatedRequests,3);
- assert.equal(metrics.mismatchFields.find(field=>field.key==='basic_comparison').count,1);
- assert.equal(metrics.mismatchFields.find(field=>field.key==='payout_account'),undefined);
+ assert.equal(metrics.mismatchFields.find(field=>field.key==='basic_comparison'),undefined);
+ assert.equal(metrics.mismatchFields.find(field=>field.key==='payout_account').unavailableCount,2);
  assert.deepEqual(snapshot.requests.map(operationsRequestStatus),['match','mismatch','review','review','failed']);
 });
 test('same receipt deduplicates by real update and preserves input without mutation',()=>{
@@ -102,15 +102,64 @@ test('explicit banker role keeps redacted completion distinct from genuine incom
 });
 
 
-test('chart buckets reflect Studio aggregate evidence without fictitious detailed field zeros',async()=>{
+test('chart exposes 12 criteria without inventing individual results from aggregate evidence',async()=>{
  const {operationsMetrics}=await import('../lib/operations-model.ts');
  const studio=normalizeStudioOperationsState(state([job()]),session).requests;
- const expected=['basic_comparison','credit_period','outstanding_arithmetic','available_arithmetic'];
- assert.deepEqual(operationsMetrics(studio).mismatchFields.map(field=>field.key),expected);
+ const metrics=operationsMetrics(studio);
+ assert.equal(metrics.mismatchFields.length,12);
+ assert.equal(new Set(metrics.mismatchFields.map(field=>field.key)).size,12);
+ assert.ok(!metrics.mismatchFields.some(field=>field.key==='basic_comparison'));
+ assert.equal(metrics.mismatchFields.find(field=>field.key==='payout_account').unavailableCount,1);
+ assert.equal(metrics.mismatchFields.find(field=>field.key==='credit_period').unavailableCount,0);
  const legacy={...studio[0],id:'legacy',policyVersion:'contract-request-six-grade-v1'};
- const legacyBuckets=operationsMetrics([legacy]).mismatchFields;
- assert.equal(legacyBuckets.length,12);assert.ok(!legacyBuckets.some(field=>field.key==='basic_comparison'));
- const mixed=operationsMetrics([...studio,legacy]).mismatchFields;
- assert.equal(mixed.length,13);assert.equal(new Set(mixed.map(field=>field.key)).size,13);
- assert.ok(expected.every(key=>mixed.some(field=>field.key===key)));
+ assert.equal(operationsMetrics([legacy]).mismatchFields.length,12);
+ assert.equal(operationsMetrics([...studio,legacy]).mismatchFields.length,12);
+ assert.ok(operationsMetrics([]).mismatchFields.every(field=>field.count===0 && field.unavailableCount===0));
+});
+
+test('individual counts preserve missing evidence and exclude repeated checks and unfinished requests',async()=>{
+ const {operationsMetrics}=await import('../lib/operations-model.ts');
+ const validation={basic:{checks:[{name:'입금계좌 일치',passed:false},{name:'신청인명 일치',passed:false}]}};
+ const requests=normalizeStudioOperationsState(state([
+  job({id:'a',grade:5,decision_label:'5등급',basic_comparison:'mismatch',validation}),
+  job({id:'b',grade:5,decision_label:'5등급',basic_comparison:'mismatch'}),
+  job({id:'pending',processing_status:'queued',validation}),
+  job({id:'incomplete',evaluation_status:'incomplete',validation}),
+ ]),session).requests;
+ const metrics=operationsMetrics([...requests,requests[0]]);
+ assert.equal(metrics.comparedRequests,2);assert.equal(metrics.mismatchRequests,2);
+ for(const key of ['payout_account','company_name']) {
+  const field=metrics.mismatchFields.find(field=>field.key===key);
+  assert.equal(field.count,1);assert.equal(field.unavailableCount,1);
+ }
+ const duplicate={...requests[0],checks:[...requests[0].checks,requests[0].checks.find(check=>check.key==='payout_account')]};
+ const field=operationsMetrics([duplicate]).mismatchFields.find(field=>field.key==='payout_account');
+ assert.equal(field.count,0);assert.equal(field.unavailableCount,1);
+});
+
+test('v40 Validate details and purpose review enrich admin without changing enum authority',()=>{
+ const validation={input:{verdict:'green',checks:[]},basic:{verdict:'red',checks:[{name:'입금계좌 일치',passed:false,reason:'계좌 대조 실패',conditions:{left:{value:'123'},right:{value:'456'}}}]}};
+ const r=normalizeStudioOperationsState(state([job({grade:5,decision_label:'5등급',basic_comparison:'mismatch',validation,purpose_review:'자금용도 확인 필요'})]),session).requests[0];
+ assert.equal(r.grade,5);assert.equal(r.checks.find(c=>c.key==='payout_account').note,'계좌 대조 실패');
+ assert.equal(r.checks.find(c=>c.key==='payout_account').requestValue,'123');
+ assert.equal(r.purposeReview.note,'자금용도 확인 필요');assert.equal(r.purposeReview.status,'unknown');
+});
+test('v40 incomplete input keeps failed validation evidence without a grade',()=>{
+ const r=normalizeStudioOperationsState(state([job({evaluation_status:'incomplete',grade:null,validation:{input:{verdict:'red',checks:[{name:'등록계약 contract_id 존재',passed:false,reason:'등록계약 없음'}]},basic:null}})]),session).requests[0];
+ assert.equal(r.grade,null);assert.equal(r.validationFailures[0].name,'등록계약 contract_id 존재');assert.equal(r.validationFailures[0].reason,'등록계약 없음');
+});
+
+
+test('all 12 supplied field results count actual mismatches without changing grade totals',async()=>{
+ const {operationsMetrics}=await import('../lib/operations-model.ts');
+ const names=['약정번호 일치','신청인명 일치','입금계좌 일치','요청금액 한도 이하','사업자번호 일치','입금은행 일치','입금예금주 일치','여신과목 일치','승인한도 일치'];
+ const validation={basic:{checks:names.map(name=>({name,passed:name!=='입금계좌 일치'}))}};
+ const requests=normalizeStudioOperationsState(state([job({grade:5,decision_label:'5등급',basic_comparison:'mismatch',validation,
+  checks:[{key:'date_check',status:'mismatch',basis:'기간 밖'},{key:'outstanding_check',status:'match',basis:'일치'},{key:'available_check',status:'match',basis:'일치'}]})]),session).requests;
+ const metrics=operationsMetrics(requests);
+ assert.equal(metrics.mismatchFields.length,12);
+ assert.ok(metrics.mismatchFields.every(field=>field.unavailableCount===0));
+ assert.deepEqual(metrics.mismatchFields.filter(field=>field.count>0).map(field=>field.key),['payout_account','credit_period']);
+ assert.equal(metrics.gradeCounts.find(item=>item.grade===5).count,1);
+ assert.equal(metrics.mismatchRequests,1);
 });
